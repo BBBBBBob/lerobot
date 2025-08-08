@@ -185,7 +185,6 @@ def decode_video_frames_torchcodec(
     and all subsequent frames until reaching the requested frame. The number of key frames in a video
     can be adjusted during encoding to take into account decoding time and video size in bytes.
     """
-
     if importlib.util.find_spec("torchcodec"):
         from torchcodec.decoders import VideoDecoder
     else:

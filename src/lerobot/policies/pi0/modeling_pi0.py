@@ -674,9 +674,13 @@ class PI0FlowMatching(nn.Module):
         dtype = state_emb.dtype
         device = state_emb.device
 
-        state_mask = torch.ones(bsize, 1, dtype=torch.bool, device=device)
-        pad_masks.append(state_mask)
-
+        if self.config.use_proprio:
+            state_mask = torch.ones(bsize, 1, dtype=torch.bool, device=device)
+            pad_masks.append(state_mask)
+        else:
+            state_mask = torch.zeros(bsize, 1, dtype=torch.bool, device=device)
+            pad_masks.append(state_mask)
+        
         # Set attention masks so that image and language inputs do not attend to state or actions
         att_masks += [1]
 
