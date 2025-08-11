@@ -891,7 +891,15 @@ class VLAFlowMatching(nn.Module):
             images, img_masks, lang_tokens, lang_masks, state=state
         )
         prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
-        prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
+
+        if self.config.use_proprio:
+            prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
+        else:
+            original_prefix_pad_masks = prefix_pad_masks.clone()
+            state_seqlen = 1 if state.ndim == 2 else state.shape[1]      
+            original_prefix_pad_masks[:, -state_seqlen:] = True
+            prefix_position_ids = torch.cumsum(original_prefix_pad_masks, dim=1) - 1
+
         # Compute image and language key value cache
         _, past_key_values = self.vlm_with_expert.forward(
             attention_mask=prefix_att_2d_masks,

@@ -835,9 +835,8 @@ class PI0FlowMatching(nn.Module):
         if self.config.use_proprio:
             position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
         else:
-            original_suffix_pad_masks = suffix_pad_masks.clone()
-            original_suffix_pad_masks[:, 0] = True
-            position_ids = prefix_offsets + torch.cumsum(original_suffix_pad_masks, dim=1) - 1
+            suffix_pad_masks[:, 0] = True
+            position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
 
         outputs_embeds, _ = self.paligemma_with_expert.forward(
             attention_mask=full_att_2d_masks,
