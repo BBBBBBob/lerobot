@@ -740,7 +740,14 @@ class PI0FlowMatching(nn.Module):
         att_masks = torch.cat([prefix_att_masks, suffix_att_masks], dim=1)
 
         att_2d_masks = make_att_2d_masks(pad_masks, att_masks)
-        position_ids = torch.cumsum(pad_masks, dim=1) - 1
+
+        if self.config.use_proprio:
+            position_ids = torch.cumsum(pad_masks, dim=1) - 1
+        else:
+            original_pad_masks = pad_masks.clone()
+            suffix_pad_masks_seqlen = suffix_pad_masks.shape[1]
+            original_pad_masks[:, -suffix_pad_masks_seqlen:-suffix_pad_masks_seqlen+1] = True
+            position_ids = torch.cumsum(original_pad_masks, dim=1) - 1
 
         (_, suffix_out), _ = self.paligemma_with_expert.forward(
             attention_mask=att_2d_masks,
@@ -824,7 +831,13 @@ class PI0FlowMatching(nn.Module):
         full_att_2d_masks = torch.cat([prefix_pad_2d_masks, suffix_att_2d_masks], dim=2)
 
         prefix_offsets = torch.sum(prefix_pad_masks, dim=-1)[:, None]
-        position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
+
+        if self.config.use_proprio:
+            position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
+        else:
+            original_suffix_pad_masks = suffix_pad_masks.clone()
+            original_suffix_pad_masks[:, 0] = True
+            position_ids = prefix_offsets + torch.cumsum(original_suffix_pad_masks, dim=1) - 1
 
         outputs_embeds, _ = self.paligemma_with_expert.forward(
             attention_mask=full_att_2d_masks,

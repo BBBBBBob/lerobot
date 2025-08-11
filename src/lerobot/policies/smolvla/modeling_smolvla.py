@@ -456,7 +456,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
         state = self.prepare_state(batch)
         lang_tokens, lang_masks = self.prepare_language(batch)
         actions = self.prepare_action(batch)
-        actions_is_pad = batch.get("actions_id_pad")
+        actions_is_pad = batch.get("actions_is_pad")
         loss_dict = {}
         losses = self.model.forward(images, img_masks, lang_tokens, lang_masks, state, actions, noise, time)
         loss_dict["losses_after_forward"] = losses.clone()
@@ -763,7 +763,12 @@ class VLAFlowMatching(nn.Module):
         device = state_emb.device
 
         states_seq_len = state_emb.shape[1]
-        state_mask = torch.ones(bsize, states_seq_len, dtype=torch.bool, device=device)
+        
+        if self.config.use_proprio:
+            state_mask = torch.ones(bsize, states_seq_len, dtype=torch.bool, device=device)
+        else:
+            print(states_seq_len)
+            state_mask = torch.zeros(bsize, states_seq_len, dtype=torch.bool, device=device)
         pad_masks.append(state_mask)
 
         # Set attention masks so that image and language inputs do not attend to state or actions
@@ -848,7 +853,16 @@ class VLAFlowMatching(nn.Module):
         att_masks = torch.cat([prefix_att_masks, suffix_att_masks], dim=1)
 
         att_2d_masks = make_att_2d_masks(pad_masks, att_masks)
-        position_ids = torch.cumsum(pad_masks, dim=1) - 1
+        
+        if self.config.use_proprio:  
+            position_ids = torch.cumsum(pad_masks, dim=1) - 1
+        else:
+            original_pad_masks = pad_masks.clone()
+            action_seqlen = actions.shape[1]
+            state_seqlen = 1 if state.ndim == 2 else state.shape[1]      
+            original_pad_masks[:, -(state_seqlen + action_seqlen):-action_seqlen] = True
+            position_ids = torch.cumsum(original_pad_masks, dim=1) - 1
+
         (_, suffix_out), _ = self.vlm_with_expert.forward(
             attention_mask=att_2d_masks,
             position_ids=position_ids,
