@@ -895,10 +895,9 @@ class VLAFlowMatching(nn.Module):
         if self.config.use_proprio:
             prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
         else:
-            original_prefix_pad_masks = prefix_pad_masks.clone()
             state_seqlen = 1 if state.ndim == 2 else state.shape[1]      
-            original_prefix_pad_masks[:, -state_seqlen:] = True
-            prefix_position_ids = torch.cumsum(original_prefix_pad_masks, dim=1) - 1
+            prefix_pad_masks[:, -state_seqlen:] = True
+            prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
 
         # Compute image and language key value cache
         _, past_key_values = self.vlm_with_expert.forward(
