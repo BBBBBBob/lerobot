@@ -767,7 +767,6 @@ class VLAFlowMatching(nn.Module):
         if self.config.use_proprio:
             state_mask = torch.ones(bsize, states_seq_len, dtype=torch.bool, device=device)
         else:
-            print(states_seq_len)
             state_mask = torch.zeros(bsize, states_seq_len, dtype=torch.bool, device=device)
         pad_masks.append(state_mask)
 
