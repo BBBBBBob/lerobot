@@ -50,7 +50,7 @@ from lerobot.utils.utils import (
     has_method,
     init_logging,
 )
-
+from lerobot.policies.pi05.configuration_pi05 import PI05Config
 
 def update_policy(
     train_metrics: MetricsTracker,
@@ -236,6 +236,11 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
             },
         }
 
+        if isinstance(cfg.policy, PI05Config):
+            processor_kwargs["preprocessor_overrides"]["pi05_prepare_state_tokenizer_processor_step"] = {
+                    "use_proprio": cfg.policy.use_proprio
+                }
+
     preprocessor, postprocessor = make_pre_post_processors(
         policy_cfg=cfg.policy,
         pretrained_path=cfg.policy.pretrained_path,
@@ -330,6 +335,7 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
         start_time = time.perf_counter()
         batch = next(dl_iter)
         batch = preprocessor(batch)
+        
         train_tracker.dataloading_s = time.perf_counter() - start_time
 
         train_tracker, output_dict = update_policy(

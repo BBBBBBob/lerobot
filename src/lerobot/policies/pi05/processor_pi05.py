@@ -54,6 +54,7 @@ class Pi05PrepareStateTokenizerProcessorStep(ProcessorStep):
 
     max_state_dim: int = 32
     task_key: str = "task"
+    use_proprio: bool = True
 
     def __call__(self, transition: EnvTransition) -> EnvTransition:
         transition = transition.copy()
@@ -65,23 +66,31 @@ class Pi05PrepareStateTokenizerProcessorStep(ProcessorStep):
         if tasks is None:
             raise ValueError("No task found in complementary data")
 
-        # TODO: check if this necessary
-        state = deepcopy(state)
-
-        # Prepare state (pad to max_state_dim)
-        state = pad_vector(state, self.max_state_dim)
-
-        # State should already be normalized to [-1, 1] by the NormalizerProcessorStep that runs before this step
-        # Discretize into 256 bins (see openpi `PaligemmaTokenizer.tokenize()`)
-        state_np = state.cpu().numpy()
-        discretized_states = np.digitize(state_np, bins=np.linspace(-1, 1, 256 + 1)[:-1]) - 1
-
         full_prompts = []
-        for i, task in enumerate(tasks):
-            cleaned_text = task.strip().replace("_", " ").replace("\n", " ")
-            state_str = " ".join(map(str, discretized_states[i]))
-            full_prompt = f"Task: {cleaned_text}, State: {state_str};\nAction: "
-            full_prompts.append(full_prompt)
+
+        if self.use_proprio:
+            # TODO: check if this necessary
+            state = deepcopy(state)
+
+            # Prepare state (pad to max_state_dim)
+            state = pad_vector(state, self.max_state_dim)
+
+            # State should already be normalized to [-1, 1] by the NormalizerProcessorStep that runs before this step
+            # Discretize into 256 bins (see openpi `PaligemmaTokenizer.tokenize()`)
+            state_np = state.cpu().numpy()
+            discretized_states = np.digitize(state_np, bins=np.linspace(-1, 1, 256 + 1)[:-1]) - 1
+
+            for i, task in enumerate(tasks):
+                cleaned_text = task.strip().replace("_", " ").replace("\n", " ")
+                state_str = " ".join(map(str, discretized_states[i]))
+                full_prompt = f"Task: {cleaned_text}, State: {state_str};\nAction: "
+                full_prompts.append(full_prompt)
+        
+        else:
+            for i, task in enumerate(tasks):
+                cleaned_text = task.strip().replace("_", " ").replace("\n", " ")
+                full_prompt = f"Task: {cleaned_text};\nAction: "
+                full_prompts.append(full_prompt)
 
         transition[TransitionKey.COMPLEMENTARY_DATA][self.task_key] = full_prompts
         # Normalize state to [-1, 1] range if needed (assuming it's already normalized by normalizer processor step!!)
@@ -128,7 +137,6 @@ def make_pi05_pre_post_processors(
     Returns:
         A tuple containing the configured pre-processor and post-processor pipelines.
     """
-
     # Add remaining processors
     input_steps: list[ProcessorStep] = [
         RenameObservationsProcessorStep(rename_map={}),  # To mimic the same processor as pretrained one
@@ -140,7 +148,7 @@ def make_pi05_pre_post_processors(
             norm_map=config.normalization_mapping,
             stats=dataset_stats,
         ),
-        Pi05PrepareStateTokenizerProcessorStep(max_state_dim=config.max_state_dim),
+        Pi05PrepareStateTokenizerProcessorStep(max_state_dim=config.max_state_dim, use_proprio=config.use_proprio),
         TokenizerProcessorStep(
             tokenizer_name="google/paligemma-3b-pt-224",
             max_length=config.tokenizer_max_length,
@@ -149,7 +157,7 @@ def make_pi05_pre_post_processors(
         ),
         DeviceProcessorStep(device=config.device),
     ]
-
+    
     output_steps: list[ProcessorStep] = [
         UnnormalizerProcessorStep(
             features=config.output_features, norm_map=config.normalization_mapping, stats=dataset_stats

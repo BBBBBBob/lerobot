@@ -228,6 +228,7 @@ def make_pre_post_processors(
             kwargs["preprocessor_overrides"] = preprocessor_overrides
             kwargs["postprocessor_overrides"] = postprocessor_overrides
 
+
         return (
             PolicyProcessorPipeline.from_pretrained(
                 pretrained_model_name_or_path=pretrained_path,
@@ -237,6 +238,7 @@ def make_pre_post_processors(
                 overrides=kwargs.get("preprocessor_overrides", {}),
                 to_transition=batch_to_transition,
                 to_output=transition_to_batch,
+                policy_cfg = policy_cfg
             ),
             PolicyProcessorPipeline.from_pretrained(
                 pretrained_model_name_or_path=pretrained_path,
@@ -292,7 +294,6 @@ def make_pre_post_processors(
 
     elif isinstance(policy_cfg, PI05Config):
         from lerobot.policies.pi05.processor_pi05 import make_pi05_pre_post_processors
-
         processors = make_pi05_pre_post_processors(
             config=policy_cfg,
             dataset_stats=kwargs.get("dataset_stats"),
