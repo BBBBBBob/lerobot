@@ -503,7 +503,7 @@ class PaliGemmaWithExpertModel(
             prefix_output = outputs_embeds[0]
             suffix_output = outputs_embeds[1]
             prefix_past_key_values = None
-
+   
         return [prefix_output, suffix_output], prefix_past_key_values
 
 
@@ -759,7 +759,8 @@ class PI05Pytorch(nn.Module):  # see openpi `PI0Pytorch`
 
         bsize = tokens.shape[0]
         device = tokens.device
-
+        
+        noise = torch.zeros((bsize, self.config.chunk_size, self.config.max_action_dim), dtype=torch.float32, device=device)
         if noise is None:
             # Sample noise with padded dimension as expected by action_in_proj
             actions_shape = (
@@ -783,7 +784,7 @@ class PI05Pytorch(nn.Module):  # see openpi `PI0Pytorch`
             inputs_embeds=[prefix_embs, None],
             use_cache=True,
         )
-
+        breakpoint()
         dt = -1.0 / num_steps
         dt = torch.tensor(dt, dtype=torch.float32, device=device)
 

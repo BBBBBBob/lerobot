@@ -894,8 +894,9 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
         if self.config.use_proprio:
             position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
         else:
-            suffix_pad_masks[:, 0] = True
-            position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
+            original_suffix_pad_masks = suffix_pad_masks.clone()
+            original_suffix_pad_masks[:, 0] = True
+            position_ids = prefix_offsets + torch.cumsum(original_suffix_pad_masks, dim=1) - 1
 
         full_att_2d_masks_4d = self._prepare_attention_masks_4d(full_att_2d_masks)
         self.paligemma_with_expert.gemma_expert.model.config._attn_implementation = "eager"  # noqa: SLF001

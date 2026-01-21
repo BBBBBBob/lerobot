@@ -207,6 +207,18 @@ def make_pre_post_processors(
             policy configuration type.
     """
     if pretrained_path:
+        if isinstance(policy_cfg, PI05Config):
+            if "preprocessor_overrides" in kwargs.keys():
+                kwargs["preprocessor_overrides"]["pi05_prepare_state_tokenizer_processor_step"] = {
+                    "use_proprio": policy_cfg.use_proprio
+                }
+            else:
+                preprocessor_overrides = {}
+                preprocessor_overrides["pi05_prepare_state_tokenizer_processor_step"] = {
+                    "use_proprio": policy_cfg.use_proprio
+                }
+                kwargs["preprocessor_overrides"] = preprocessor_overrides
+                
         # TODO(Steven): Temporary patch, implement correctly the processors for Gr00t
         if isinstance(policy_cfg, GrootConfig):
             # GROOT handles normalization in groot_pack_inputs_v3 step

@@ -441,6 +441,7 @@ class SmolVLMWithExpertModel(nn.Module):
                     fill_kv_cache=fill_kv_cache,
                     past_key_values=past_key_values,
                 )
+          
             else:
                 att_outputs, past_key_values = self.forward_cross_attn_layer(
                     model_layers,

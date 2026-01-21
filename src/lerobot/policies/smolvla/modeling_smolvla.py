@@ -129,6 +129,7 @@ def make_att_2d_masks(pad_masks, att_masks):
     att_2d_masks = cumsum[:, None, :] <= cumsum[:, :, None]
     pad_2d_masks = pad_masks[:, None, :] * pad_masks[:, :, None]
     att_2d_masks = att_2d_masks & pad_2d_masks
+
     return att_2d_masks
 
 
@@ -618,6 +619,7 @@ class VLAFlowMatching(nn.Module):
             pad_masks.append(img_mask)
 
             att_masks += [0] * (num_img_embs)
+
             if self.add_image_special_tokens:
                 image_end_token = (
                     self.vlm_with_expert.embed_language_tokens(
@@ -632,6 +634,7 @@ class VLAFlowMatching(nn.Module):
                 embs.append(image_end_token)
                 pad_masks.append(image_end_mask)
                 att_masks += [0] * (image_end_mask.shape[1])
+                
         lang_emb = self.vlm_with_expert.embed_language_tokens(lang_tokens)
         # Normalize language embeddings
         lang_emb_dim = lang_emb.shape[-1]
@@ -671,7 +674,7 @@ class VLAFlowMatching(nn.Module):
             att_masks = pad_tensor(att_masks, self.prefix_length, pad_value=0)
 
         att_masks = att_masks.expand(bsize, -1)
-
+        
         return embs, pad_masks, att_masks
 
     def embed_suffix(self, noisy_actions, timestep):
@@ -726,7 +729,7 @@ class VLAFlowMatching(nn.Module):
 
         if time is None:
             time = self.sample_time(actions.shape[0], actions.device)
-
+    
         time_expanded = time[:, None, None]
         x_t = time_expanded * noise + (1 - time_expanded) * actions
         u_t = noise - actions
@@ -745,7 +748,8 @@ class VLAFlowMatching(nn.Module):
         else:
             original_pad_masks = pad_masks.clone()
             action_seqlen = actions.shape[1]
-            state_seqlen = 1 if state.ndim == 2 else state.shape[1]      
+            state_seqlen = 1 if state.ndim == 2 else state.shape[1]
+          
             original_pad_masks[:, -(state_seqlen + action_seqlen):-action_seqlen] = True
             position_ids = torch.cumsum(original_pad_masks, dim=1) - 1
 
@@ -777,7 +781,7 @@ class VLAFlowMatching(nn.Module):
         """Do a full inference forward and compute the action (batch_size x num_steps x num_motors)"""
         bsize = state.shape[0]
         device = state.device
-
+        
         if noise is None:
             actions_shape = (bsize, self.config.chunk_size, self.config.max_action_dim)
             noise = self.sample_noise(actions_shape, device)
@@ -790,9 +794,10 @@ class VLAFlowMatching(nn.Module):
         if self.config.use_proprio:
             prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
         else:
-            state_seqlen = 1 if state.ndim == 2 else state.shape[1]      
-            prefix_pad_masks[:, -state_seqlen:] = True
-            prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
+            original_prefix_pad_masks = prefix_pad_masks.clone()
+            state_seqlen = 1 if state.ndim == 2 else state.shape[1]     
+            original_prefix_pad_masks[:, -state_seqlen:] = True
+            prefix_position_ids = torch.cumsum(original_prefix_pad_masks, dim=1) - 1
 
         # Compute image and language key value cache
         _, past_key_values = self.vlm_with_expert.forward(
@@ -803,12 +808,13 @@ class VLAFlowMatching(nn.Module):
             use_cache=self.config.use_cache,
             fill_kv_cache=True,
         )
+     
         dt = -1.0 / self.config.num_steps
         dt = torch.tensor(dt, dtype=torch.float32, device=device)
 
         x_t = noise
         time = torch.tensor(1.0, dtype=torch.float32, device=device)
-
+        
         while time >= -dt / 2:
             expanded_time = time.expand(bsize)
 
@@ -882,4 +888,5 @@ class VLAFlowMatching(nn.Module):
         suffix_out = suffix_out[:, -self.config.chunk_size :]
         suffix_out = suffix_out.to(dtype=torch.float32)
         v_t = self.action_out_proj(suffix_out)
+   
         return v_t
